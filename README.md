@@ -1,4 +1,4 @@
-# meeting-room-booking-system-v2
+# Meeting-Room-Booking-System
 
 
 
@@ -15,14 +15,14 @@ Already a pro? Just edit this README.md and make it your own. Want to make it ea
 
 ```
 cd existing_repo
-git remote add origin https://gitlab.com/Hirito572/meeting-room-booking-system-v2.git
+git remote add origin https://gitlab.com/B232270014/meeting-room-booking-system.git
 git branch -M main
 git push -uf origin main
 ```
 
 ## Integrate with your tools
 
-* [Set up project integrations](https://gitlab.com/Hirito572/meeting-room-booking-system-v2/-/settings/integrations)
+* [Set up project integrations](https://gitlab.com/B232270014/meeting-room-booking-system/-/settings/integrations)
 
 ## Collaborate with your team
 
@@ -91,3 +91,32 @@ For open source projects, say how it is licensed.
 
 ## Project status
 If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+
+## project start
+
+sudo dnf install python3-virtualenv python3-pip
+
+# 1. Re-create it cleanly
+python3 -m venv venv
+
+# 2. Activate it 
+source venv/bin/activate
+
+# 3. Upgrade Pip & Install Dependencies
+pip install --upgrade pip
+pip install django djangorestframework drf-spectacular django-cors-headers
+
+# 4. Install PostgreSQL Client Libraries on Fedora
+sudo dnf install postgresql-devel python3-devel gcc
+
+# 5. Install the Python Database Adapter
+pip install psycopg2-binary
+
+# Generate the fresh layout blueprint matching ERD
+python manage.py makemigrations
+
+# Push the exact blueprint into PostgreSQL
+python manage.py migrate
+
+# run 
+python manage.py runserver
