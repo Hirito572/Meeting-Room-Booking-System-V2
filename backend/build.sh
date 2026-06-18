@@ -6,4 +6,15 @@ pip install -r requirements.txt
 python manage.py collectstatic --no-input
 python manage.py migrate
 
-python manage.py createsuperuser --noinput || true
+python manage.py shell <<EOF
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+if not User.objects.filter(username="postgres").exists():
+    User.objects.create_superuser(
+        "postgres",
+        "munkhluu0608@gmail.com",
+        "Admin123456!"
+    )
+EOF
