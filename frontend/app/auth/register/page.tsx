@@ -25,7 +25,7 @@ export default function RegisterPage() {
         email: form.email,
         password: form.password,
         phone_number: form.phone,
-      });
+      } as any /* API-д phone_number шаардлагатай боловч form-д phone гэж байгааг түр зуур шийдэж байна */);
       router.push('/auth/login?registered=1');
     } catch (e: any) {
       const d = e.response?.data;
