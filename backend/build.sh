@@ -11,10 +11,17 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-if not User.objects.filter(username="postgres").exists():
-    User.objects.create_superuser(
-        "postgres",
-        "munkhluu0608@gmail.com",
-        "Admin123456!"
-    )
+user, created = User.objects.get_or_create(
+    username="postgres",
+    defaults={
+        "email": "munkhluu0608@gmail.com"
+    }
+)
+
+user.is_staff = True
+user.is_superuser = True
+user.set_password("Admin123456!")
+user.save()
+
+print("Admin user ready")
 EOF
