@@ -25,8 +25,11 @@ SECRET_KEY = 'django-insecure-w&k_2ptprao7kb90bh(*jh)2f=%ke(1xo+(l9eh9!$b79q-)v1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    "meeting-room-booking-system-v2.onrender.com",
+    "localhost",
+    "127.0.0.1",
+]
 
 # Application definition
 
