@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from django.db import models
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from rest_framework.permissions import BasePermission, SAFE_METHODS, AllowAny
+from rest_framework.permissions import BasePermission, SAFE_METHODS, AllowAny, IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -16,9 +16,30 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Room, Booking, Resource, RoomResource
 from .serializers import (
     RegisterSerializer, LoginSerializer, BookingSerializer,
-    RoomSerializer, ResourceSerializer, RoomResourceSerializer
+    RoomSerializer, ResourceSerializer, RoomResourceSerializer,
+    UserProfileSerializer, ChangePasswordSerializer,
 )
 from .permissions import IsBookingOwner
+
+
+def _is_fully_booked(bookings_qs, window_start, window_end):
+    """
+    Өгөгдсөн цагийн мужид (window_start–window_end) дор хаяж 1 минутын
+    сул цаг үлдсэн эсэхийг шалгана. Захиалгууд цаг хугацааны дарааллаар
+    ирсэн гэж үзэн, мужийг бүрэн дүүргэж байгаа эсэхийг тооцоолно.
+    Бүрэн дүүрсэн бол True, сул цаг үлдсэн бол False буцаана.
+    """
+    cursor = window_start
+    for booking in bookings_qs:
+        b_start = max(booking.start_time, window_start)
+        b_end = min(booking.end_time, window_end)
+        if b_start > cursor:
+            # cursor-ээс b_start хүртэл сул цаг үлдсэн
+            return False
+        cursor = max(cursor, b_end)
+        if cursor >= window_end:
+            return True
+    return cursor >= window_end
 
 
 class IsAdminOrReadOnly(BasePermission):
@@ -63,6 +84,96 @@ class RoomViewSet(viewsets.ModelViewSet):
     serializer_class = RoomSerializer
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAdminOrReadOnly]
+
+    def get_queryset(self):
+        """
+        Шүүлтүүрийг хэрэгжүүлнэ:
+        - ?resource=Monitor,Wifi  → сонгосон бүх тоног төхөөрөмжтэй өрөөнүүд
+        - ?capacity=10            → дурдсан тооноос дээш суудалтай өрөөнүүд
+        - ?availability=available_now | today_available | week_available
+        """
+        qs = Room.objects.all().distinct()
+        params = self.request.query_params
+
+        # Тоног төхөөрөмжөөр шүүх — сонгосон бүх resource-той өрөөг олно
+        resource_param = params.get('resource')
+        if resource_param:
+            resource_names = [r.strip() for r in resource_param.split(',') if r.strip()]
+            for name in resource_names:
+                qs = qs.filter(room_resources__resource__resource_name=name)
+
+        # Багтаамжаар шүүх — min/max муж
+        capacity_min = params.get('capacity_min') or params.get('capacity')
+        capacity_max = params.get('capacity_max')
+        if capacity_min:
+            try:
+                qs = qs.filter(capacity__gte=int(capacity_min))
+            except (TypeError, ValueError):
+                pass
+        if capacity_max:
+            try:
+                qs = qs.filter(capacity__lte=int(capacity_max))
+            except (TypeError, ValueError):
+                pass
+
+        # Боломжтой байдлаар шүүх
+        availability = params.get('availability')
+        if availability in ('available_now', 'today_available', 'week_available'):
+            now = timezone.now()
+            active_statuses = ["Confirmed", "Priority", "Complicated"]
+
+            if availability == 'available_now':
+                # Яг одоо захиалгатай давхцаж буй өрөөнүүдийг хасна
+                busy_room_ids = Booking.objects.filter(
+                    status__in=active_statuses,
+                    start_time__lte=now,
+                    end_time__gt=now,
+                ).values_list('room_id', flat=True)
+                qs = qs.exclude(id__in=busy_room_ids)
+
+            elif availability == 'today_available':
+                # Өнөөдөр ажиллах цагийн дотор (08:00-20:00) сул цаг үлдсэн өрөөнүүд
+                day_start = timezone.make_aware(
+                    datetime.combine(now.date(), datetime.min.time())
+                )
+                work_start = max(now, day_start.replace(hour=8, minute=0))
+                work_end = day_start.replace(hour=20, minute=0)
+
+                if work_start >= work_end:
+                    # Ажлын цаг аль хэдийн дууссан бол өнөөдөр сул цаг алга
+                    qs = qs.none()
+                else:
+                    fully_booked_ids = []
+                    today_bookings = Booking.objects.filter(
+                        status__in=active_statuses,
+                        start_time__lt=work_end,
+                        end_time__gt=work_start,
+                    )
+                    for room in qs:
+                        room_bookings = today_bookings.filter(room_id=room.id).order_by('start_time')
+                        if not _is_fully_booked(room_bookings, work_start, work_end):
+                            continue
+                        fully_booked_ids.append(room.id)
+                    qs = qs.exclude(id__in=fully_booked_ids)
+
+            elif availability == 'week_available':
+                # Энэ долоо хоногт (өнөөдрөөс хойш 7 хоног) сул цаг үлдсэн өрөөнүүд
+                week_start = now
+                week_end = now + timedelta(days=7)
+                fully_booked_ids = []
+                week_bookings = Booking.objects.filter(
+                    status__in=active_statuses,
+                    start_time__lt=week_end,
+                    end_time__gt=week_start,
+                )
+                for room in qs:
+                    room_bookings = week_bookings.filter(room_id=room.id).order_by('start_time')
+                    if not _is_fully_booked(room_bookings, week_start, week_end):
+                        continue
+                    fully_booked_ids.append(room.id)
+                qs = qs.exclude(id__in=fully_booked_ids)
+
+        return qs
 
 
 class ResourceViewSet(viewsets.ModelViewSet):
@@ -187,3 +298,50 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.status = "Canceled"
         booking.save()
         return Response({"message": "Захиалга цуцлагдлаа."}, status=status.HTTP_200_OK)
+
+
+class ProfileView(APIView):
+    """
+    Нэвтэрсэн хэрэглэгчийн профайл мэдээллийг авах/засах.
+    GET   -> хэрэглэгчийн нэр, имэйл, нийт захиалгын статистик
+    PATCH -> нэр, имэйл, овог, нэрийг шинэчлэх
+    """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+
+    def get(self, request):
+        user = request.user
+        bookings = Booking.objects.filter(user=user)
+        now = timezone.now()
+        data = UserProfileSerializer(user).data
+        data['stats'] = {
+            'total_bookings': bookings.count(),
+            'upcoming_bookings': bookings.filter(status='Confirmed', start_time__gt=now).count(),
+            'cancelled_bookings': bookings.filter(status__in=['Cancelled', 'Canceled']).count(),
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChangePasswordView(APIView):
+    """
+    Нэвтэрсэн хэрэглэгчийн нууц үгийг солих.
+    Одоогийн нууц үгийг шалгаж, шинэ нууц үгийг хадгална.
+    """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({"message": "Нууц үг амжилттай солигдлоо."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

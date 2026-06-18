@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { getUser, clearAuth, isAuthenticated } from '@/lib/auth';
@@ -40,10 +41,17 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full border-2 border-[#2D7D6F] flex items-center justify-center">
-            <span className="text-[#2D7D6F] font-bold text-sm">MM</span>
-          </div>
-          <span className="font-semibold text-[#1A2B2A] hidden sm:block">Meeting Mate</span>
+          <Image
+            src="/logo.png"
+            alt="Meeting Room Logo"
+            width={48}
+            height={48}
+            priority
+          />
+
+          <span className="font-semibold text-[#1A2B2A] hidden sm:block">
+            Meeting Room
+          </span>
         </Link>
 
         {/* Desktop Nav */}
@@ -69,6 +77,13 @@ export default function Navbar() {
                     <p className="font-semibold text-sm text-[#1A2B2A]">{user.username}</p>
                     <p className="text-xs text-[#5A7270] truncate">{user.email}</p>
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="block w-full text-left px-4 py-2 text-sm text-[#1A2B2A] hover:bg-[#EAF4F2] transition-colors"
+                  >
+                    Profile
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm text-[#C0392B] hover:bg-[#FDECEA] transition-colors"

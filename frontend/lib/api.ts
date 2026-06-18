@@ -26,7 +26,7 @@ export const login = (data: { username: string; password: string }) =>
 export const logout = () => api.post('/api/logout/');
 
 // ─── Rooms ──────────────────────────────────────────────
-export const getRooms = (params?: { resource?: string; capacity?: number; availability?: string }) =>
+export const getRooms = (params?: { resource?: string; capacity_min?: number; capacity_max?: number; availability?: string }) =>
   api.get('/api/rooms/', { params });
 
 export const getRoom = (id: number) => api.get(`/api/rooms/${id}/`);
@@ -52,5 +52,17 @@ export const confirmBooking = (id: number) =>
 
 // ─── Resources ───────────────────────────────────────────
 export const getResources = () => api.get('/api/resources/');
+
+// ─── Profile ────────────────────────────────────────────
+export const getProfile = () => api.get('/api/profile/');
+
+export const updateProfile = (data: { email?: string; first_name?: string; last_name?: string }) =>
+  api.patch('/api/profile/', data);
+
+export const changePassword = (data: {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}) => api.post('/api/profile/change-password/', data);
 
 export default api;

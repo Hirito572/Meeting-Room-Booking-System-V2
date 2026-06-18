@@ -6,7 +6,9 @@ from .views import (
     BookingViewSet,
     RoomViewSet,
     ResourceViewSet,
-    RoomResourceViewSet
+    RoomResourceViewSet,
+    ProfileView,
+    ChangePasswordView,
 )
 
 router = DefaultRouter()
@@ -21,4 +23,6 @@ router.register(r'room-assets', RoomResourceViewSet, basename='room-asset')
 urlpatterns = [
     path('register/', RegisterUserView.as_view(), name='api-register'),
     path('login/', LoginUserView.as_view(), name='api-login'),
+    path('profile/', ProfileView.as_view(), name='api-profile'),
+    path('profile/change-password/', ChangePasswordView.as_view(), name='api-change-password'),
 ] + router.urls

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getRooms, getResources } from '@/lib/api';
-import { Users, Monitor, Minus, Plus, SlidersHorizontal, X, Wifi, Tv, PenLine, Projector, CheckCircle2, Camera, Speaker, Snowflake } from 'lucide-react';
+import { Users, Monitor, SlidersHorizontal, X, Wifi, Tv, PenLine, Projector, CheckCircle2, Camera, Speaker, Snowflake } from 'lucide-react';
 
 interface Resource { resource_id: number; resource_name: string; }
 interface RoomResource { resource_name: string; quantity: number; }
@@ -11,6 +11,7 @@ interface Room {
   room_name: string;
   capacity: number;
   room_resources: RoomResource[];
+  is_available_today?: boolean;
 }
 
 const RESOURCE_ICON: Record<string, any> = {
@@ -22,17 +23,6 @@ const RESOURCE_ICON: Record<string, any> = {
   'Camera': Camera,
   'Speaker': Speaker,
   'AC': Snowflake,
-};
-
-const RESOURCE_LABEL: Record<string, string> = {
-  'Monitor': 'Монитор',
-  'Whiteboard': 'Самбар',
-  'Projector': 'Проектор',
-  'Wifi': 'WiFi',
-  'TV': 'Телевиз',
-  'Camera': 'Камер',
-  'Speaker': 'Чанга яригч',
-  'AC': 'Агааржуулагч',
 };
 
 const ROOM_IMAGES = [
@@ -51,8 +41,8 @@ function CapacityBar({ capacity }: { capacity: number }) {
   return (
     <div className="mt-2">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-[#5A7270]">Суудлын тоо</span>
-        <span className="text-xs font-bold text-[#1A2B2A]">{capacity} хүн</span>
+        <span className="text-xs text-[#5A7270]">Capacity</span>
+        <span className="text-xs font-bold text-[#1A2B2A]">{capacity} people</span>
       </div>
       <div className="w-full bg-[#EAF4F2] rounded-full h-1.5">
         <div className="h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
@@ -67,7 +57,8 @@ export default function RoomsPage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedResources, setSelectedResources] = useState<string[]>([]);
-  const [capacity, setCapacity] = useState({ min: 5, max: 40 });
+  const [capacityMin, setCapacityMin] = useState<string>('');
+  const [capacityMax, setCapacityMax] = useState<string>('');
   const [availability, setAvailability] = useState('today_available');
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -88,7 +79,8 @@ export default function RoomsPage() {
   const applyFilters = () => {
     fetchRooms({
       resource: selectedResources.join(',') || undefined,
-      capacity: capacity.min || undefined,
+      capacity_min: capacityMin ? parseInt(capacityMin) : undefined,
+      capacity_max: capacityMax ? parseInt(capacityMax) : undefined,
       availability,
     });
     setFilterOpen(false);
@@ -96,7 +88,8 @@ export default function RoomsPage() {
 
   const clearFilters = () => {
     setSelectedResources([]);
-    setCapacity({ min: 5, max: 40 });
+    setCapacityMin('');
+    setCapacityMax('');
     setAvailability('today_available');
     fetchRooms();
     setFilterOpen(false);
@@ -112,14 +105,14 @@ export default function RoomsPage() {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A2B2A]">Хурлын өрөөнүүд</h1>
-          <p className="text-sm text-[#5A7270] mt-1">{rooms.length} өрөө байна</p>
+          <h1 className="text-2xl font-bold text-[#1A2B2A]">Meeting Rooms</h1>
+          <p className="text-sm text-[#5A7270] mt-1">{rooms.length} rooms available</p>
         </div>
         <button
           onClick={() => setFilterOpen(!filterOpen)}
           className="flex items-center gap-2 border border-[#D1E5E2] bg-white text-[#5A7270] px-4 py-2 rounded-lg text-sm hover:bg-[#EAF4F2] hover:border-[#2D7D6F] hover:text-[#2D7D6F] transition-colors"
         >
-          <SlidersHorizontal size={16} /> Шүүлтүүр
+          <SlidersHorizontal size={16} /> Filters
         </button>
       </div>
 
@@ -128,23 +121,23 @@ export default function RoomsPage() {
         {filterOpen && (
           <aside className="w-56 shrink-0 bg-white border border-[#D1E5E2] rounded-xl p-5 h-fit sticky top-20">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-sm text-[#1A2B2A]">Шүүлтүүр</h2>
+              <h2 className="font-semibold text-sm text-[#1A2B2A]">Filters</h2>
               <button onClick={() => setFilterOpen(false)}><X size={16} className="text-[#5A7270]" /></button>
             </div>
 
             <div className="mb-5">
-              <p className="text-xs font-semibold text-[#5A7270] uppercase tracking-wide mb-2">Тоног төхөөрөмж</p>
+              <p className="text-xs font-semibold text-[#5A7270] uppercase tracking-wide mb-2">Equipment</p>
               {(resources.length > 0 ? resources.map(r => r.resource_name) : ['Monitor', 'Whiteboard', 'Projector']).map(name => (
                 <label key={name} className="flex items-center gap-2 text-sm text-[#1A2B2A] mb-1.5 cursor-pointer">
                   <input type="checkbox" checked={selectedResources.includes(name)} onChange={() => toggleResource(name)} className="accent-[#2D7D6F]" />
-                  {RESOURCE_LABEL[name] || name}
+                  {name}
                 </label>
               ))}
             </div>
 
             <div className="mb-5">
-              <p className="text-xs font-semibold text-[#5A7270] uppercase tracking-wide mb-2">Боломжтой байдал</p>
-              {[['available_now', 'Одоо боломжтой'], ['today_available', 'Өнөөдөр'], ['week_available', 'Энэ долоо хоног']].map(([val, label]) => (
+              <p className="text-xs font-semibold text-[#5A7270] uppercase tracking-wide mb-2">Availability</p>
+              {[['available_now', 'Available now'], ['today_available', 'Today'], ['week_available', 'This week']].map(([val, label]) => (
                 <label key={val} className="flex items-center gap-2 text-sm text-[#1A2B2A] mb-1.5 cursor-pointer">
                   <input type="radio" name="avail" value={val} checked={availability === val} onChange={() => setAvailability(val)} className="accent-[#2D7D6F]" />
                   {label}
@@ -153,21 +146,31 @@ export default function RoomsPage() {
             </div>
 
             <div className="mb-5">
-              <p className="text-xs font-semibold text-[#5A7270] uppercase tracking-wide mb-2">Суудлын тоо</p>
+              <p className="text-xs font-semibold text-[#5A7270] uppercase tracking-wide mb-2">Capacity</p>
               <div className="flex items-center gap-2">
-                <button onClick={() => setCapacity(p => ({ ...p, min: Math.max(1, p.min - 5) }))} className="w-6 h-6 rounded-full border border-[#D1E5E2] flex items-center justify-center">
-                  <Minus size={12} />
-                </button>
-                <span className="text-sm text-[#1A2B2A] flex-1 text-center">{capacity.min} – {capacity.max}</span>
-                <button onClick={() => setCapacity(p => ({ ...p, max: Math.min(100, p.max + 5) }))} className="w-6 h-6 rounded-full border border-[#D1E5E2] flex items-center justify-center">
-                  <Plus size={12} />
-                </button>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Min"
+                  value={capacityMin}
+                  onChange={e => setCapacityMin(e.target.value)}
+                  className="w-full border border-[#D1E5E2] rounded-lg px-2 py-1.5 text-sm text-[#1A2B2A] focus:outline-none focus:border-[#2D7D6F]"
+                />
+                <span className="text-xs text-[#5A7270]">–</span>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Max"
+                  value={capacityMax}
+                  onChange={e => setCapacityMax(e.target.value)}
+                  className="w-full border border-[#D1E5E2] rounded-lg px-2 py-1.5 text-sm text-[#1A2B2A] focus:outline-none focus:border-[#2D7D6F]"
+                />
               </div>
             </div>
 
             <div className="flex gap-2">
-              <button onClick={clearFilters} className="flex-1 text-xs border border-[#D1E5E2] py-1.5 rounded-lg text-[#5A7270] hover:bg-[#F7FBFA]">Арилгах</button>
-              <button onClick={applyFilters} className="flex-1 text-xs bg-[#2D7D6F] text-white py-1.5 rounded-lg hover:bg-[#246660]">Хэрэглэх</button>
+              <button onClick={clearFilters} className="flex-1 text-xs border border-[#D1E5E2] py-1.5 rounded-lg text-[#5A7270] hover:bg-[#F7FBFA]">Clear</button>
+              <button onClick={applyFilters} className="flex-1 text-xs bg-[#2D7D6F] text-white py-1.5 rounded-lg hover:bg-[#246660]">Apply</button>
             </div>
           </aside>
         )}
@@ -191,48 +194,49 @@ export default function RoomsPage() {
           ) : rooms.length === 0 ? (
             <div className="text-center py-20 text-[#5A7270]">
               <Monitor size={40} className="mx-auto mb-3 opacity-30" />
-              <p>Өрөө олдсонгүй. Шүүлтүүрийг өөрчилнө үү.</p>
+              <p>No rooms found. Try adjusting the filters.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {rooms.map((room, i) => {
                 const IconList = room.room_resources.slice(0, 4).map(rr => ({
                   Icon: RESOURCE_ICON[rr.resource_name] || CheckCircle2,
-                  name: RESOURCE_LABEL[rr.resource_name] || rr.resource_name,
+                  name: rr.resource_name,
                   qty: rr.quantity,
                 }));
                 return (
                   <div key={room.id} className="bg-white rounded-xl border border-[#D1E5E2] overflow-hidden hover:shadow-lg transition-all duration-200 group flex flex-col">
-                    {/* Зураг */}
                     <div className="relative h-44 overflow-hidden">
                       <img
                         src={ROOM_IMAGES[i % ROOM_IMAGES.length]}
                         alt={room.room_name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      {/* Availability badge */}
-                      <div className="absolute top-2 left-2 flex items-center gap-1 bg-[#27AE60]/90 text-white text-xs font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
-                        <span className="w-1.5 h-1.5 bg-white rounded-full inline-block" />
-                        Боломжтой
-                      </div>
-                      {/* Capacity badge */}
+                      {room.is_available_today === false ? (
+                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-[#C0392B]/90 text-white text-xs font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
+                          <span className="w-1.5 h-1.5 bg-white rounded-full inline-block" />
+                          Fully Booked
+                        </div>
+                      ) : (
+                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-[#27AE60]/90 text-white text-xs font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
+                          <span className="w-1.5 h-1.5 bg-white rounded-full inline-block" />
+                          Available
+                        </div>
+                      )}
                       <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full backdrop-blur-sm">
                         <Users size={10} />
-                        {room.capacity} хүн
+                        {room.capacity} people
                       </div>
                     </div>
 
-                    {/* Мэдээлэл */}
                     <div className="p-4 flex flex-col flex-1">
                       <h3 className="font-semibold text-[#1A2B2A] text-base">{room.room_name}</h3>
 
-                      {/* Суудлын progress bar */}
                       <CapacityBar capacity={room.capacity} />
 
-                      {/* Технологи / тоног төхөөрөмж */}
                       {IconList.length > 0 && (
                         <div className="mt-3">
-                          <p className="text-xs text-[#5A7270] mb-1.5">Тоног төхөөрөмж</p>
+                          <p className="text-xs text-[#5A7270] mb-1.5">Equipment</p>
                           <div className="flex flex-wrap gap-1.5">
                             {IconList.map(({ Icon, name, qty }) => (
                               <span key={name} className="inline-flex items-center gap-1 text-xs bg-[#EAF4F2] text-[#2D7D6F] px-2 py-1 rounded-lg font-medium">
@@ -247,12 +251,15 @@ export default function RoomsPage() {
                         </div>
                       )}
 
-                      {/* Schedule товч */}
                       <button
                         onClick={() => router.push(`/rooms/${room.id}`)}
-                        className="mt-auto pt-4 w-full bg-[#2D7D6F] text-white text-sm py-2.5 rounded-lg hover:bg-[#246660] active:scale-95 transition-all font-medium"
+                        className={`mt-auto pt-4 w-full text-sm py-2.5 rounded-lg active:scale-95 transition-all font-medium ${
+                          room.is_available_today === false
+                            ? 'bg-white border border-[#C0392B] text-[#C0392B] hover:bg-[#FDECEA]'
+                            : 'bg-[#2D7D6F] text-white hover:bg-[#246660]'
+                        }`}
                       >
-                        Захиалах
+                        {room.is_available_today === false ? 'Fully Booked Today · View Other Dates' : 'Book Now'}
                       </button>
                     </div>
                   </div>

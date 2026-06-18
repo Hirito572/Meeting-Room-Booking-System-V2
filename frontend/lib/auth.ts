@@ -1,4 +1,4 @@
-export function saveAuth(token: string, user: { username: string; email: string; id: number }) {
+export function saveAuth(token: string, user: { username: string; email: string; id: number; first_name?: string; last_name?: string }) {
   localStorage.setItem('access_token', token);
   localStorage.setItem('user', JSON.stringify(user));
 }
@@ -7,6 +7,13 @@ export function getUser() {
   if (typeof window === 'undefined') return null;
   const u = localStorage.getItem('user');
   return u ? JSON.parse(u) : null;
+}
+
+export function updateStoredUser(patch: Record<string, any>) {
+  const current = getUser() || {};
+  const updated = { ...current, ...patch };
+  localStorage.setItem('user', JSON.stringify(updated));
+  return updated;
 }
 
 export function getToken() {
