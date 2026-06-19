@@ -163,7 +163,7 @@ STATICFILES_STORAGE = (
     'whitenoise.storage.CompressedManifestStaticFilesStorage'
 )
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:4000"]
+CORS_ALLOWED_ORIGINS = ["http://localhost:4000", "https://meeting-room-booking-system-v2-5o665jag9-meeting-room.vercel.app/"]
 CORS_ALLOW_CREDENTIALS = True  # ← Session cookie дамжуулна
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
